@@ -1,0 +1,134 @@
+#cloud-config
+package_update: true
+packages:
+  - conntrack
+  - docker
+  - socat
+
+write_files:
+  - path: /opt/xbrain/app.yaml
+    owner: root:root
+    permissions: "0644"
+    content: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ${app_name}-html
+      data:
+        index.html: |
+          Welcome Xbrain
+      ---
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ${app_name}
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: ${app_name}
+        template:
+          metadata:
+            labels:
+              app: ${app_name}
+          spec:
+            containers:
+              - name: nginx
+                image: nginx:1.27-alpine
+                ports:
+                  - containerPort: 80
+                volumeMounts:
+                  - name: html
+                    mountPath: /usr/share/nginx/html/index.html
+                    subPath: index.html
+            volumes:
+              - name: html
+                configMap:
+                  name: ${app_name}-html
+      ---
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: ${app_name}
+      spec:
+        type: NodePort
+        selector:
+          app: ${app_name}
+        ports:
+          - name: http
+            port: 80
+            targetPort: 80
+            nodePort: ${host_port}
+
+  - path: /etc/systemd/system/xbrain-app-forward.service
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Forward ALB traffic from EC2 host to the Kubernetes app in minikube
+      After=network-online.target docker.service
+      Wants=network-online.target
+
+      [Service]
+      User=ec2-user
+      ExecStart=/opt/xbrain/forward.sh
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /opt/xbrain/forward.sh
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      NODE_IP=$(/usr/local/bin/minikube -p '${cluster_name}' ip)
+      exec /usr/bin/socat TCP-LISTEN:${host_port},fork,reuseaddr,bind=0.0.0.0 TCP:$${NODE_IP}:${host_port}
+
+  - path: /opt/xbrain/bootstrap.sh
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euxo pipefail
+
+      if [ ! -f /swapfile ]; then
+        fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+        chmod 600 /swapfile
+        mkswap /swapfile
+        swapon /swapfile
+        echo '/swapfile none swap sw 0 0' >> /etc/fstab
+      else
+        swapon /swapfile || true
+      fi
+
+      systemctl enable --now docker
+      usermod -aG docker ec2-user
+
+      if ! command -v minikube >/dev/null 2>&1; then
+        curl -fsSL -o /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/v1.33.1/minikube-linux-amd64
+        chmod +x /usr/local/bin/minikube
+      fi
+
+      if ! command -v kubectl >/dev/null 2>&1; then
+        curl -fsSL -o /usr/local/bin/kubectl https://dl.k8s.io/release/v1.30.4/bin/linux/amd64/kubectl
+        chmod +x /usr/local/bin/kubectl
+      fi
+
+      until docker info >/dev/null 2>&1; do
+        sleep 2
+      done
+
+      su - ec2-user -c "/usr/local/bin/minikube start --profile='${cluster_name}' --driver=docker --container-runtime=docker --kubernetes-version=v1.30.0 --cpus=1 --memory=700mb --force"
+      su - ec2-user -c "/usr/local/bin/minikube profile '${cluster_name}'"
+      su - ec2-user -c "/usr/local/bin/kubectl apply -f /opt/xbrain/app.yaml"
+      su - ec2-user -c "/usr/local/bin/kubectl rollout status deployment/${app_name} --timeout=180s"
+
+      systemctl daemon-reload
+      systemctl enable --now xbrain-app-forward.service
+
+runcmd:
+  - [bash, /opt/xbrain/bootstrap.sh]
