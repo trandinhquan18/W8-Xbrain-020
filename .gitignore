@@ -1,4 +1,7 @@
 .terraform/
+.DS_Store
 terraform.tfstate
 terraform.tfstate.*
 *.tfplan
+generated/*
+!generated/.gitkeep

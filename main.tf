@@ -18,12 +18,24 @@ data "aws_ami" "amazon_linux_2023" {
 }
 
 data "aws_route53_zone" "app" {
+  count = local.route53_enabled ? 1 : 0
+
   name         = "${local.route53_zone_name}."
   private_zone = false
 }
 
 resource "random_pet" "suffix" {
   length = 2
+}
+
+resource "tls_private_key" "ssh" {
+  algorithm = "ED25519"
+}
+
+resource "local_sensitive_file" "ssh_private_key" {
+  filename        = local.ssh_key_path
+  content         = tls_private_key.ssh.private_key_openssh
+  file_permission = "0600"
 }
 
 data "cloudinit_config" "minikube_bootstrap" {
@@ -131,16 +143,12 @@ resource "aws_security_group" "minikube_host" {
     security_groups = [aws_security_group.alb.id]
   }
 
-  dynamic "ingress" {
-    for_each = var.ssh_public_key_path == "" ? [] : [1]
-
-    content {
-      description = "Direct SSH access"
-      from_port   = 22
-      to_port     = 22
-      protocol    = "tcp"
-      cidr_blocks = [var.allowed_ssh_cidr]
-    }
+  ingress {
+    description = "Direct SSH access"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.allowed_ssh_cidr]
   }
 
   egress {
@@ -157,10 +165,8 @@ resource "aws_security_group" "minikube_host" {
 }
 
 resource "aws_key_pair" "ssh" {
-  count = var.ssh_public_key_path == "" ? 0 : 1
-
   key_name   = "${var.project_name}-ssh-${random_pet.suffix.id}"
-  public_key = file(pathexpand(var.ssh_public_key_path))
+  public_key = tls_private_key.ssh.public_key_openssh
 
   tags = merge(local.common_tags, {
     Name = "${var.project_name}-ssh-${random_pet.suffix.id}"
@@ -170,7 +176,7 @@ resource "aws_key_pair" "ssh" {
 resource "aws_instance" "minikube_host" {
   ami                         = data.aws_ami.amazon_linux_2023.id
   instance_type               = var.instance_type
-  key_name                    = var.ssh_public_key_path == "" ? null : aws_key_pair.ssh[0].key_name
+  key_name                    = aws_key_pair.ssh.key_name
   subnet_id                   = aws_subnet.public[0].id
   vpc_security_group_ids      = [aws_security_group.minikube_host.id]
   associate_public_ip_address = true
@@ -241,7 +247,9 @@ resource "aws_lb_listener" "http" {
 }
 
 resource "aws_route53_record" "app" {
-  zone_id = data.aws_route53_zone.app.zone_id
+  count = local.route53_enabled ? 1 : 0
+
+  zone_id = data.aws_route53_zone.app[0].zone_id
   name    = local.domain_name
   type    = "A"
 

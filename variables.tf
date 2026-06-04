@@ -40,31 +40,19 @@ variable "allowed_http_cidr" {
 }
 
 variable "route53_zone_name" {
-  description = "Existing public Route53 hosted zone name."
+  description = "Existing public Route53 hosted zone name. Leave empty to skip Route53 and use the ALB DNS name."
   type        = string
-  default     = "gavinxbrain.online"
+  default     = ""
 }
 
 variable "domain_name" {
-  description = "DNS name that should point to the ALB."
-  type        = string
-  default     = "gavinxbrain.online"
-}
-
-variable "ssh_public_key_path" {
-  description = "Path to a local SSH public key. Leave empty to disable direct SSH access."
+  description = "DNS name that should point to the ALB. Leave empty to skip Route53 and use the ALB DNS name."
   type        = string
   default     = ""
 }
 
 variable "allowed_ssh_cidr" {
-  description = "CIDR allowed to SSH to the EC2 host when ssh_public_key_path is set. Use your public IP with /32."
+  description = "CIDR allowed to SSH to the EC2 host. For better security, pass your public IPv4 with /32."
   type        = string
   default     = "0.0.0.0/0"
-}
-
-variable "ssh_private_key_path" {
-  description = "Optional private key path used only to render the ssh_command output."
-  type        = string
-  default     = ""
 }
