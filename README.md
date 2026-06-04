@@ -129,11 +129,19 @@ make destroy
 
 ### K8s self-healing
 
+Pods truoc khi xoa:
+
 ![K8s pods before delete](evidence/k8s-pods-before-delete.png)
+
+Lenh xoa pods:
 
 ![K8s delete pods command](evidence/k8s-delete-pods-command.png)
 
+Pods moi duoc tao lai:
+
 ![K8s pods recreated](evidence/k8s-pods-recreated.png)
+
+URL sau khi pods duoc tao lai:
 
 ![K8s URL after recreate](evidence/k8s-url-after-recreate.png)
 
@@ -179,10 +187,3 @@ Ket qua dung:
 HTTP/1.1 200 OK
 Welcome Xbrain
 ```
-
-Bang chung nen chup:
-
-- `evidence/k8s-pods-before-delete.png`: sau lenh `kubectl get pods -l app=welcome-xbrain -o wide`.
-- `evidence/k8s-delete-pods-command.png`: sau lenh `kubectl delete pod -l app=welcome-xbrain`.
-- `evidence/k8s-pods-recreated.png`: sau lenh `kubectl get pods -l app=welcome-xbrain -w`, thay pods moi `Running`.
-- `evidence/k8s-url-after-recreate.png`: sau lenh `curl -i "$(terraform output -raw app_url)"`, thay `200 OK` va `Welcome Xbrain`.
