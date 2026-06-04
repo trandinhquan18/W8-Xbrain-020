@@ -126,3 +126,63 @@ make destroy
 ### Route53 URL
 
 ![Route53 URL success](evidence/route53-url-success.png)
+
+### K8s self-healing
+
+![K8s pods before delete](evidence/k8s-pods-before-delete.png)
+
+![K8s delete pods command](evidence/k8s-delete-pods-command.png)
+
+![K8s pods recreated](evidence/k8s-pods-recreated.png)
+
+![K8s URL after recreate](evidence/k8s-url-after-recreate.png)
+
+## Test K8s self-healing
+
+Luu y: cac lenh `kubectl` ben duoi chi chay duoc sau khi SSH vao EC2 vi minikube nam trong EC2.
+
+SSH vao EC2:
+
+```bash
+$(terraform output -raw ssh_command)
+```
+
+Kiem tra pods hien tai:
+
+```bash
+kubectl get pods -l app=welcome-xbrain -o wide
+```
+
+Xoa pods cua app:
+
+```bash
+kubectl delete pod -l app=welcome-xbrain
+```
+
+Theo doi Kubernetes Deployment tu tao pods moi:
+
+```bash
+kubectl get pods -l app=welcome-xbrain -w
+```
+
+Khi pods moi ve trang thai `Running`, mo terminal khac va test lai URL:
+
+```bash
+curl -i "$(terraform output -raw app_url)"
+```
+
+Lenh tren chay tren may local trong folder Terraform. `terraform output -raw app_url` lay URL public cua app, co the la ALB DNS hoac domain Route53 neu ban da cau hinh domain.
+
+Ket qua dung:
+
+```text
+HTTP/1.1 200 OK
+Welcome Xbrain
+```
+
+Bang chung nen chup:
+
+- `evidence/k8s-pods-before-delete.png`: sau lenh `kubectl get pods -l app=welcome-xbrain -o wide`.
+- `evidence/k8s-delete-pods-command.png`: sau lenh `kubectl delete pod -l app=welcome-xbrain`.
+- `evidence/k8s-pods-recreated.png`: sau lenh `kubectl get pods -l app=welcome-xbrain -w`, thay pods moi `Running`.
+- `evidence/k8s-url-after-recreate.png`: sau lenh `curl -i "$(terraform output -raw app_url)"`, thay `200 OK` va `Welcome Xbrain`.
