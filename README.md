@@ -68,3 +68,30 @@ terraform apply -auto-approve \
 ```bash
 make destroy
 ```
+
+## Evidence
+
+Anh/video bang chung luu trong folder `evidence/`.
+
+Can co 4 anh:
+
+- `evidence/terraform-init-success.png`: ket qua `terraform init` thanh cong.
+- `evidence/terraform-plan-success.png`: ket qua `terraform plan` thanh cong.
+- `evidence/terraform-apply-success.png`: ket qua `terraform apply` thanh cong va hien outputs.
+- `evidence/alb-url-success.png`: trinh duyet mo `http://gavinxbrain.online` va hien `Welcome Xbrain`.
+
+### Terraform init
+
+![Terraform init success](evidence/terraform-init-success.png)
+
+### Terraform plan
+
+![Terraform plan success](evidence/terraform-plan-success.png)
+
+### Terraform apply
+
+![Terraform apply success](evidence/terraform-apply-success.png)
+
+### ALB URL
+
+![ALB URL success](evidence/alb-url-success.png)
